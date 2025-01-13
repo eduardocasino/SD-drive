@@ -69,6 +69,8 @@
 //    * Skipped for compatibility with retro-spy's Pico port
 // Revision 1.6:
 //    * Implemented the FORMAT command (Eduardo Casino)
+// Revision 2.0:
+//    * Implement new GET_VERSION2 command
 
 #include <Arduino.h>
 
@@ -88,6 +90,9 @@
 #include "Errors.h"
 #include "SdFuncs.h"
 
+// New version info
+#define NEW_VERSION_MAJOR 2
+#define NEW_VERSION_MINOR 0
 
 // Debugging options.  They usually produce lots of serial output so be careful what you turn on.
 
@@ -401,7 +406,7 @@ static bool processEvent(Event *ep)
                 {
                         ep->clean(EVT_VERSION_INFO);  // same event type but clear all other data
                         byte *ptr = ep->getData();
-                        strcpy((char *)ptr, "Corsham Technology\r\nv1.6");
+                        strcpy((char *)ptr, "Corsham Technology\r\nv2.0");
                         link->sendEvent(ep);
                         break;
                 }
@@ -485,6 +490,16 @@ static bool processEvent(Event *ep)
                 case EVT_FORMAT:
                         createImage(ep);
                         break;
+
+                case EVT_GET_VERSION2:
+                {
+                        ep->clean(EVT_VERSION_INFO2);
+                        byte *ptr = ep->getData();
+                        *ptr++ = NEW_VERSION_MAJOR;
+                        *ptr   = NEW_VERSION_MINOR;
+                        link->sendEvent(ep);
+                        break;
+                }
 
                 default:
                         // All the unwanted toys end up here.  Maybe a garbage Event,

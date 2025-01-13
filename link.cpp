@@ -777,11 +777,22 @@ void Link::sendEvent(Event *eptr)
                                 writeByte(*dptr++);
                         }
                         break;
+
+                case EVT_VERSION_INFO2:
+                        // A VERSION_INFO is followed by two bytes:
+                        // major and minor version codes.
+
+                        writeByte(PROTO_VERSION);       // Version info follows
+                        bptr = eptr->getData();
+                        writeByte(*dptr++);             // Major
+                        writeByte(*dptr);               // Minor
+                        break;
+
         }
-        
+
         prepareRead();    // back to read mode
         uInt->sendEvent(UI_TRANSACTION_STOP);
-        
+
         freeAnEvent(eptr);      // all done with event
 }
 
