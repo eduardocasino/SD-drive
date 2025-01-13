@@ -498,6 +498,75 @@ byte Disks::getStatus(byte drive)
 }
 
 
+//=============================================================================
+// This is called to format (create) a new disk image.  
+// Returns false on error
 
+bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
+{
+        bool ret = true;    // assume no error
+        
+        Serial.print("Got format request for filename \"");
+        Serial.print(filename);
+        Serial.print("\": ");
+        Serial.print(tracks);
+        Serial.print(" tracks, ");
+        Serial.print(sectors);
+        Serial.print(" sectors, fillPattern = 0x");
+        Serial.print(sectors, HEX);
+        Serial.println("");
+
+        // If the file already exists, fail
+
+        if (SD.exists(filename))
+        {
+                Serial.println("File exists!");
+                setError(ERR_FILE_EXISTS);
+                ret = false;
+        }
+        else
+        {
+                // Open the file for writing
+                
+                file = SD.open(filename, FILE_WRITE);
+                
+                if (!file)
+                {
+                        Serial.println("Error opening file!");
+                        setError(ERR_WRITE_ERROR);
+                        ret = false;
+                }
+                else
+                {
+                        // Fill sector buffer
+
+                        memset(buffer, fillPattern, sizeof(buffer));
+                        
+                        for (int i = 0; i < tracks*sectors; i++)
+                        {
+                                if (sizeof(buffer) != file.write(buffer, sizeof(buffer)))
+                                {
+                                        Serial.println("Error writing to file!");
+                                        setError(ERR_WRITE_ERROR);
+                                        ret = false;
+                                        break;
+                                }
+                        }
+                }
+
+        }
+
+        if (ret)
+        {
+                Serial.println(" - SUCCESS!");
+        }
+        else
+        {
+                Serial.print(" - FAILED!  Error code ");
+                Serial.println(errorCode);
+        }
+        
+        return ret;
+}
 
 

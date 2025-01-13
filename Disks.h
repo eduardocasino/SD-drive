@@ -78,6 +78,7 @@ class Disks
                 UserInt *userInt;
                 int whichConfigFile;
                 const char *configFileName;
+                char buffer[SECTOR_SIZE];
                 
                 void setError(byte code) { errorCode = code; }
 };

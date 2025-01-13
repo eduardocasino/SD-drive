@@ -105,6 +105,9 @@ typedef enum
         STATE_GET_DRV_NAME,  // get drive number
         STATE_APPEND_SECTOR, // add sector data to end
         STATE_GET_LENGTH,
+        STATE_GET_TRACKS,
+        STATE_GET_SECTORS,
+        STATE_GET_FILLER,
 } STATE;
 
 
@@ -524,7 +527,18 @@ void Link::stateMachine(word token)
                                         event->clean(EVT_SET_TIMER);
                                         state = STATE_GET_ONE;
                                         break;
-
+                                
+                                case PROTO_FORMAT:    // Create/format an image
+                                        Serial.println("Got a FORMAT");
+                                        // Next is the number of tracks,
+                                        // then the number of sectors,
+                                        // then the filler byte
+                                        // and then the filename to format/create
+                                        event = getAnEvent();
+                                        event->clean(EVT_FORMAT);
+                                        hasEvent = false;
+                                        state = STATE_GET_TRACKS;
+                                        break;
                                 default:
                                         Serial.print("Got unknown command code: ");
                                         Serial.println((byte)token, HEX);
@@ -629,6 +643,21 @@ void Link::stateMachine(word token)
                         count = (token == 0 ? 256 : token);
                         event->addByte(token);
                         state = STATE_APPEND_SECTOR;
+                        break;
+                
+                case STATE_GET_TRACKS:
+                        event->addByte(token);
+                        state = STATE_GET_SECTORS;
+                        break;
+                
+                case STATE_GET_SECTORS:
+                        event->addByte(token);
+                        state = STATE_GET_FILLER;
+                        break;
+
+                case STATE_GET_FILLER:
+                        event->addByte(token);
+                        state = STATE_WAIT_NULL;
                         break;
         }
         

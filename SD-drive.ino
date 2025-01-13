@@ -65,6 +65,10 @@
 // Revision 1.4:
 //    * Fixed bug that caused all DSK file updates to be appended rather than applied
 //      to the requested sector.  Removed a bit of excess debugging output.
+// Revision 1.5:
+//    * Skipped for compatibility with retro-spy's Pico port
+// Revision 1.6:
+//    * Implemented the FORMAT command (Eduardo Casino)
 
 #include <Arduino.h>
 
@@ -152,7 +156,7 @@ void setup()
         Serial.begin(9600);
 
         Serial.println("");
-        Serial.println("SD Drive version 1.4");
+        Serial.println("SD Drive version 1.6");
         Serial.println("Brought to you by Bob Applegate and Corsham Technologies");
         Serial.println("bob@corshamtech.com, www.corshamtech.com");
         
@@ -397,7 +401,7 @@ static bool processEvent(Event *ep)
                 {
                         ep->clean(EVT_VERSION_INFO);  // same event type but clear all other data
                         byte *ptr = ep->getData();
-                        strcpy((char *)ptr, "Corsham Technology\r\nv1.4");
+                        strcpy((char *)ptr, "Corsham Technology\r\nv1.6");
                         link->sendEvent(ep);
                         break;
                 }
@@ -478,6 +482,10 @@ static bool processEvent(Event *ep)
                         break;
                 }
                         
+                case EVT_FORMAT:
+                        createImage(ep);
+                        break;
+
                 default:
                         // All the unwanted toys end up here.  Maybe a garbage Event,
                         // maybe an old type, or one we haven't implemented yet.
@@ -807,6 +815,36 @@ void sendMounted(void)
         eptr = link->getAnEvent();
         eptr->clean(EVT_DIR_END);
         link->sendEvent(eptr);
+}
+
+
+
+
+//=============================================================================
+// This creates a new image
+// If the number of tracks or number of sectors is zero, then that indicates
+// a value of 256.
+
+static void createImage(Event *ep)
+{
+        byte *bptr = ep->getData();     // start of arguments
+        int tracks = (int)(*bptr++);    // number of tracks
+        int sectors = (int)(*bptr++);   // number sectors per track
+        byte filler = *bptr++;          // filler byte
+
+        tracks = tracks ? tracks : 256;
+        sectors = sectors ? sectors : 256;
+
+        if (disks->format((char *)bptr, tracks, sectors, filler))
+        {
+                ep->clean(EVT_ACK);
+        }
+        else
+        {
+                ep->clean(EVT_NAK);
+                ep->addByte(disks->getErrorCode());
+        }
+        link->sendEvent(ep);
 }
 
 

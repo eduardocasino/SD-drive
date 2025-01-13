@@ -51,6 +51,7 @@ typedef enum
         EVT_WRITE_BYTES,
         EVT_SAVE_CONFIG,
         EVT_SET_TIMER,
+        EVT_FORMAT
 } EVENT_TYPE;
 
 
