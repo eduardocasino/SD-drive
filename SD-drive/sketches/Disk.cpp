@@ -12,6 +12,7 @@
 //
 // Bob Applegate, K2UT - bob@corshamtech.com
 
+#include <SPI.h>
 #include <SD.h>
 #include "Disk.h"
 #include "Errors.h"
@@ -71,7 +72,7 @@ void Disk::unmount(void)
 // Given a pathname to a file, attempt to open it.  Returns true if mounted,
 // false if not and the error flag is set with the reason.
 
-bool Disk::mount(char *afilename, bool readOnly)
+void Disk::mount(char *afilename, bool readOnly)
 {
         goodFlag = false;    // assume it is not good
         //byte buffer[SECTOR_SIZE];
@@ -93,7 +94,11 @@ bool Disk::mount(char *afilename, bool readOnly)
                 }
                 else
                 {
-                        openFlag = O_RDWR;
+#if defined(ARDUINO_RASPBERRY_PI_PICO)
+                        openFlag = FILE_WRITE;
+#else
+	                    openFlag = O_RDWR;
+#endif
                 }
 
                 // Open the file!
@@ -111,8 +116,11 @@ bool Disk::mount(char *afilename, bool readOnly)
                         goodFlag = true;
                         mountedFlag = true;
                         isOpenF = true;
-                
+	               
                         strcpy(filename, afilename);    // save name for later
+#if defined(ARDUINO_RASPBERRY_PI_PICO)	                
+	                    file.close();
+#endif
                 }
         }
         else
@@ -157,6 +165,16 @@ bool Disk::read(unsigned long offset, byte *buf)
         byte *orig = buf;
 #endif
 
+#if defined(ARDUINO_RASPBERRY_PI_PICO)	   
+	file = SD.open(filename, openFlag);
+	if (!file)
+	{
+		Serial.println("Error opening file!");
+		// should set an error code
+		return false;
+	}
+#endif
+	
         file.seek(offset);
         
         if ((file.available() < SECTOR_SIZE) || (offset + SECTOR_SIZE > file.size()))
@@ -174,6 +192,10 @@ bool Disk::read(unsigned long offset, byte *buf)
         
 #ifdef DUMP_SECTORS
         hexdump(orig, SECTOR_SIZE);
+#endif
+	
+#if defined(ARDUINO_RASPBERRY_PI_PICO)	                
+	file.close();
 #endif
         return ret;
 }
@@ -195,7 +217,17 @@ bool Disk::write(unsigned long offset, byte *buf)
 //        Serial.print("Disk::write(");
 //        Serial.print(offset >> 16, HEX);
 //        Serial.println(offset & 0xffff, HEX);
-        
+    
+#if defined(ARDUINO_RASPBERRY_PI_PICO)	   
+	file = SD.open(filename, openFlag);
+	if (!file)
+	{
+		Serial.println("Error opening file!");
+		// should set an error code
+		return false;
+	}
+#endif
+	
         if (readOnlyFlag)
         {
                 errorCode = ERR_READ_ONLY;
@@ -242,6 +274,11 @@ bool Disk::write(unsigned long offset, byte *buf)
                         }
                 }
         }
+	
+#if defined(ARDUINO_RASPBERRY_PI_PICO)	                
+	file.close();
+#endif
+	
         return ret;
 }
 
