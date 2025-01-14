@@ -6,6 +6,8 @@
 //
 // Bob Applegate - K2UT, bob@corshamtech.com
 
+// 2025/01/14 - Eduardo Casino: Implement format(), add error checks
+
 #include <SD.h>
 #include "Disks.h"
 #include "Errors.h"
@@ -373,7 +375,7 @@ bool Disks::saveConfig(void)
 
 bool Disks::mount(byte drive, char *filename, bool readOnly)
 {
-        bool ret = false;    // assume no error
+        bool ret = true;    // assume no error
         
         Serial.print("Got mount request for drive ");
         Serial.print(drive);
@@ -384,15 +386,28 @@ bool Disks::mount(byte drive, char *filename, bool readOnly)
                 Serial.print(" - read only");
         Serial.println("");
         
-        disks[drive]->mount(filename, readOnly);
-        if (disks[drive]->isGood())
+        if (isDriveValid(drive))
         {
-                ret = true;
+                disks[drive]->mount(filename, readOnly);
+                if (!disks[drive]->isGood())
+                {
+                        ret = false;
+                        setError(disks[drive]->getError());    // move their error into our error code
+                }
+        }
+        else
+        {       
+                ret = false;
+                setError(ERR_BAD_DRIVE);
+        }
+
+        if (ret)
+        {
+                setError(ERR_NONE);
                 Serial.println(" - SUCCESS!");
         }
         else
         {
-                setError(disks[drive]->getError());    // move their error into our error code
                 Serial.print(" - FAILED!  Error code ");
                 Serial.println(errorCode);
         }
@@ -404,15 +419,23 @@ bool Disks::mount(byte drive, char *filename, bool readOnly)
 
 
 //=============================================================================
-// Unmount just one drive, the number being passed in.  Returns true on error
-// false if not.
+// Unmount just one drive, the number being passed in.  Returns true on success
+// false on error
 
 bool Disks::unmount(byte drive)
 {
-        bool ret = false;    // assume no error
+        bool ret = true;    // assume no error
         
-        disks[drive]->unmount();
-        
+        if (isDriveValid(drive))
+        {
+                disks[drive]->unmount();
+                setError(ERR_NONE);
+        }
+        else
+        {
+                ret = false;
+                setError(ERR_BAD_DRIVE);
+        }
         return ret;
 }
 
@@ -428,25 +451,31 @@ bool Disks::read(byte drive, unsigned long offset, byte *buf)
 {
         bool ret = false;
         
-        // Is the drive even mounted?
-        
-        if (disks[drive]->isMounted())
+        if (isDriveValid(drive))
         {
-                if (disks[drive]->read(offset, buf))
+                // Is the drive even mounted?
+                if (disks[drive]->isMounted())
                 {
-                        ret = true;
-                        errorCode = ERR_NONE;
+                        if (disks[drive]->read(offset, buf))
+                        {
+                                ret = true;
+                                setError(ERR_NONE);
+                        }
+                        else    // error
+                        {
+                                Serial.println("**** read error ****");
+                                Serial.flush();
+                                setError(disks[drive]->getError());
+                        }
                 }
-                else    // error
+                else
                 {
-                        Serial.println("**** read error ****");
-                        Serial.flush();
-                        errorCode = disks[drive]->getError();
+                        setError(ERR_NOT_MOUNTED);
                 }
         }
         else
         {
-                errorCode = ERR_NOT_MOUNTED;
+                setError(ERR_BAD_DRIVE);
         }
 
         return ret;
@@ -464,24 +493,30 @@ bool Disks::write(byte drive, unsigned long offset, byte *buf)
 {
         bool ret = false;
         
-        // Is the drive even mounted?
-        
-        if (disks[drive]->isMounted())
-        {
-                if (disks[drive]->write(offset, buf))
+        if (isDriveValid(drive))
+        {        
+                // Is the drive even mounted?
+                if (disks[drive]->isMounted())
                 {
-                        ret = true;
-                        errorCode = ERR_NONE;
+                        if (disks[drive]->write(offset, buf))
+                        {
+                                ret = true;
+                                setError(ERR_NONE);
+                        }
+                        else    // error
+                        {
+                                Serial.println("**** write error ****");
+                                setError(disks[drive]->getError());
+                        }
                 }
-                else    // error
+                else
                 {
-                        Serial.println("**** write error ****");
-                        errorCode = disks[drive]->getError();
+                        setError(ERR_NOT_MOUNTED);
                 }
         }
         else
         {
-                errorCode = ERR_NOT_MOUNTED;
+                setError(ERR_BAD_DRIVE);
         }
 
         return ret;
@@ -494,7 +529,14 @@ bool Disks::write(byte drive, unsigned long offset, byte *buf)
 
 byte Disks::getStatus(byte drive)
 {
-        return disks[drive]->getStatus();
+        if (isDriveValid(drive))
+        {
+                return disks[drive]->getStatus();
+        }
+        else
+        {
+                return 0x80;
+        }
 }
 
 
@@ -558,6 +600,7 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
 
         if (ret)
         {
+                setError(ERR_NONE);
                 Serial.println(" - SUCCESS!");
         }
         else
