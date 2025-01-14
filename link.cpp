@@ -528,6 +528,12 @@ void Link::stateMachine(word token)
                                         state = STATE_GET_ONE;
                                         break;
                                 
+                                case PROTO_GET_VERSION2:
+                                        event = getAnEvent();
+                                        event->clean(EVT_GET_VERSION2);
+                                        hasEvent = true;
+                                        break;
+
                                 case PROTO_FORMAT:    // Create/format an image
                                         Serial.println("Got a FORMAT");
                                         // Next is the number of tracks,
@@ -679,7 +685,7 @@ void Link::stateMachine(word token)
 
 void Link::sendEvent(Event *eptr)
 {
-        byte *bptr;
+        byte *dptr;
         
         prepareWrite();    // get ready to write and for host to read
         
@@ -695,8 +701,8 @@ void Link::sendEvent(Event *eptr)
                         // reason byte.
                         
                         writeByte(PROTO_NAK);    // NAK
-                        bptr = eptr->getData();
-                        writeByte(*bptr);  // reason code
+                        dptr = eptr->getData();
+                        writeByte(*dptr);  // reason code
                         break;
                         
                 case EVT_FILE_DATA:
@@ -707,7 +713,7 @@ void Link::sendEvent(Event *eptr)
                         // length can be zero, indicating end of file.
                         
                         writeByte(PROTO_FILE_DATA);    // send the command
-                        byte *dptr= eptr->getData();  // pointer to the data
+                        dptr= eptr->getData();  // pointer to the data
                         byte msgLength = *dptr++;  // number of bytes to send
                         writeByte(msgLength);    // length of data to follow
                         while (msgLength--)
@@ -720,7 +726,7 @@ void Link::sendEvent(Event *eptr)
                 case EVT_DIR_INFO:
                 {
                         writeByte(PROTO_DIR);
-                        byte *dptr= eptr->getData();  // pointer to the data
+                        dptr= eptr->getData();  // pointer to the data
                         do
                         {
                                 writeByte(*dptr);
@@ -738,7 +744,7 @@ void Link::sendEvent(Event *eptr)
                         // Sector data heading back to host.  Always 256 bytes.
                         
                         writeByte(PROTO_SECTOR_DATA);
-                        byte *dptr = eptr->getData();
+                        dptr = eptr->getData();
                         unsigned int size = getSectorSize(*dptr++);
                         while (size--)
                         {
@@ -750,7 +756,7 @@ void Link::sendEvent(Event *eptr)
                 case EVT_DISK_STATUS:
                 {
                         writeByte(PROTO_STATUS);
-                        byte *dptr = eptr->getData();
+                        dptr = eptr->getData();
                         writeByte(*dptr++);
                         break;
                 }
@@ -758,7 +764,7 @@ void Link::sendEvent(Event *eptr)
                 case EVT_MOUNTED:
                 {
                         writeByte(PROTO_MOUNT_INFO);
-                        byte *dptr = eptr->getData();
+                        dptr = eptr->getData();
                         writeByte(*dptr++);   // drive number
                         writeByte(*dptr++);   // read-only flag
                         while (*dptr)
@@ -771,7 +777,7 @@ void Link::sendEvent(Event *eptr)
 
                 case EVT_CLOCK_DATA:
                         writeByte(PROTO_CLOCK_DATA);
-                        byte *dptr = eptr->getData();
+                        dptr = eptr->getData();
                         for (int i = 0; i < 8; i++)
                         {
                                 writeByte(*dptr++);
@@ -783,7 +789,7 @@ void Link::sendEvent(Event *eptr)
                         // major and minor version codes.
 
                         writeByte(PROTO_VERSION);       // Version info follows
-                        bptr = eptr->getData();
+                        dptr = eptr->getData();
                         writeByte(*dptr++);             // Major
                         writeByte(*dptr);               // Minor
                         break;

@@ -161,7 +161,10 @@ void setup()
         Serial.begin(9600);
 
         Serial.println("");
-        Serial.println("SD Drive version 1.6");
+        Serial.print("SD Drive version ");
+        Serial.print(NEW_VERSION_MAJOR);
+        Serial.print(".");
+        Serial.println(NEW_VERSION_MINOR);
         Serial.println("Brought to you by Bob Applegate and Corsham Technologies");
         Serial.println("bob@corshamtech.com, www.corshamtech.com");
         
@@ -488,15 +491,15 @@ static bool processEvent(Event *ep)
                 }
                         
                 case EVT_FORMAT:
-                        createImage(ep);
+                                                ep->addByte(NEW_VERSION_MAJOR);
+(ep);
                         break;
 
                 case EVT_GET_VERSION2:
                 {
                         ep->clean(EVT_VERSION_INFO2);
-                        byte *ptr = ep->getData();
-                        *ptr++ = NEW_VERSION_MAJOR;
-                        *ptr   = NEW_VERSION_MINOR;
+                        ep->addByte(NEW_VERSION_MAJOR);
+                        ep->addByte(NEW_VERSION_MINOR);
                         link->sendEvent(ep);
                         break;
                 }
