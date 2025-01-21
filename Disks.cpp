@@ -259,7 +259,7 @@ enum
 
 bool Disks::saveConfig(void)
 {
-        bool ret = false;
+        bool ret = true;
         File ofile;
         int state = STATE_NEWLINE;
         int d;
@@ -273,25 +273,10 @@ bool Disks::saveConfig(void)
         // the contents copied from one to the other.
 
         SD.remove(CONFIG_BACKUP_FILE);      // remove old backup
-        file = SD.open(configFileName, FILE_READ);
-        ofile = SD.open(CONFIG_BACKUP_FILE, FILE_WRITE);
-        if (!ofile || !file)
+        if (!internalRename(configFileName, CONFIG_BACKUP_FILE))
         {
-                Serial.print("Failed copying file");
-                file.close();
-                ofile.close();
                 return ret;
         }
-
-        while (file.available())
-        {
-          ofile.write(file.read());
-        }
-
-        ofile.close();
-        file.close();
-
-        SD.remove(configFileName);   // remove the existing config file
 
         // We now have a backup.
 
@@ -300,6 +285,7 @@ bool Disks::saveConfig(void)
         if (!ofile || !file)
         {
                 Serial.println("failed to open config file for updating");
+                ret = false;
         }
         else
         {
@@ -555,7 +541,7 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
         Serial.print(" tracks, ");
         Serial.print(sectors);
         Serial.print(" sectors, fillPattern = 0x");
-        Serial.print(sectors, HEX);
+        Serial.print(fillPattern, HEX);
         Serial.println("");
 
         // If the file already exists, fail
@@ -582,11 +568,11 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
                 {
                         // Fill sector buffer
 
-                        memset(buffer, fillPattern, sizeof(buffer));
+                        memset(buffer, fillPattern, SECTOR_SIZE);
                         
                         for (int i = 0; i < tracks*sectors; i++)
                         {
-                                if (sizeof(buffer) != file.write(buffer, sizeof(buffer)))
+                                if (SECTOR_SIZE != file.write(buffer, SECTOR_SIZE))
                                 {
                                         Serial.println("Error writing to file!");
                                         setError(ERR_WRITE_ERROR);
@@ -594,6 +580,7 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
                                         break;
                                 }
                         }
+                        file.close();
                 }
 
         }
@@ -613,3 +600,159 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
 }
 
 
+//=============================================================================
+// This is called to erase a file on the SD card.
+// Returns false on error
+
+bool Disks::erase(char *filename)
+{
+        bool ret = true;    // assume no error
+
+        Serial.print("Got erase request for filename \"");
+        Serial.print(filename);
+        Serial.println("\"");
+
+        // If the file already exists, fail
+
+        if (!SD.exists(filename))
+        {
+                Serial.println("File does not exist!");
+                setError(ERR_FILE_NOT_FOUND);
+                ret = false;
+        }
+        else
+        {
+                if (!SD.remove(filename))
+                {
+                        Serial.println("Error deleting file!");
+                        setError(ERR_WRITE_ERROR);
+                        ret = false;
+                }
+        }
+
+        if (ret)
+        {
+                setError(ERR_NONE);
+                Serial.println(" - SUCCESS!");
+        }
+        else
+        {
+                Serial.print(" - FAILED!  Error code ");
+                Serial.println(errorCode);
+        }
+
+        return ret;
+}
+
+
+
+//=============================================================================
+// This is called to copy or rename a file on the SD card.
+// Returns false on error
+
+bool Disks::copy(char *from, char *dest, bool rename)
+{
+        bool ret = true;
+
+        Serial.print("Got ");
+        if (rename)
+                Serial.print("rename");
+        else
+                Serial.print("copy");
+        Serial.print(" request for filename \"");
+        Serial.print(from);
+        Serial.print("\" to \"");
+        Serial.print(dest);
+        Serial.println("\".");
+
+        if (!SD.exists(from))
+        {
+                Serial.println("File does not exist!");
+                setError(ERR_FILE_NOT_FOUND);
+                ret = false;
+        }
+        else if (SD.exists(dest))
+        {
+                Serial.println("Destination name exist!");
+                setError(ERR_FILE_EXISTS);
+                ret = false;
+        }
+        else
+        {
+                if (rename)
+                        ret = internalRename(from, dest);
+                else
+                        ret = internalCopy(from, dest);
+
+                if (!ret)
+                {
+                        setError(ERR_WRITE_ERROR);
+                }
+        }
+
+        if (ret)
+        {
+                setError(ERR_NONE);
+                Serial.println(" - SUCCESS!");
+        }
+        else
+        {
+                Serial.print(" - FAILED!  Error code ");
+                Serial.println(errorCode);
+        }
+
+        return ret;
+}
+
+
+
+//=============================================================================
+// Utility funtion to copy a file in the SD card.
+// Returns true if success, false if error.
+
+bool Disks::internalCopy(char *from, char *dest)
+{
+        bool ret = true;
+
+        File ofile;
+
+        file = SD.open(from, FILE_READ);
+        ofile = SD.open(dest, FILE_WRITE);
+        if (!ofile || !file)
+        {
+                Serial.print("Failed copying file");
+                file.close();
+                ofile.close();
+                ret = false;
+        }
+        else
+        {
+                while (file.available())
+                {
+                        ofile.write(buffer, file.read(buffer, sizeof(buffer)));
+                }
+
+                ofile.close();
+                file.close();
+        }
+
+        return ret;
+}
+
+
+
+//=============================================================================
+// Utility funtion to rename a file in the SD card.
+// Returns true if success, false if error.
+
+bool Disks::internalRename(char *from, char *dest)
+{
+        bool ret = internalCopy(from, dest);
+
+        if (ret)
+        {
+                SD.remove(from);                // remove the existing file
+        }
+
+        return ret;
+}

@@ -52,8 +52,10 @@ typedef enum
         EVT_SAVE_CONFIG,
         EVT_SET_TIMER,
         EVT_FORMAT,
-        EVT_GET_VERSION2,
-        EVT_VERSION_INFO2,
+        EVT_ERASE,
+        EVT_COPY,
+        EVT_RENAME,
+        EVT_UNKNOWN_COMMAND,
 } EVENT_TYPE;
 
 

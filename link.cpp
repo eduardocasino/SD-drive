@@ -63,7 +63,7 @@
 
 extern unsigned getSectorSize(byte code);
 
-#define PROTOCOL_VERSION 1
+#define PROTOCOL_VERSION 2
 
 extern bool debounceInputPin(int pin);
 
@@ -108,6 +108,7 @@ typedef enum
         STATE_GET_TRACKS,
         STATE_GET_SECTORS,
         STATE_GET_FILLER,
+        STATE_WAIT_NULL_TWO, // get two null-terminated strings
 } STATE;
 
 
@@ -527,14 +528,8 @@ void Link::stateMachine(word token)
                                         event->clean(EVT_SET_TIMER);
                                         state = STATE_GET_ONE;
                                         break;
-                                
-                                case PROTO_GET_VERSION2:
-                                        event = getAnEvent();
-                                        event->clean(EVT_GET_VERSION2);
-                                        hasEvent = true;
-                                        break;
 
-                                case PROTO_FORMAT:    // Create/format an image
+                                case PROTO_FORMAT:      // Create/format an image
                                         Serial.println("Got a FORMAT");
                                         // Next is the number of tracks,
                                         // then the number of sectors,
@@ -545,10 +540,51 @@ void Link::stateMachine(word token)
                                         hasEvent = false;
                                         state = STATE_GET_TRACKS;
                                         break;
+
+                                case PROTO_ERASE:      // Delete a file
+                                        Serial.println("Got an ERASE");
+                                        // Next is the file name to delete
+                                        event = getAnEvent();
+                                        event->clean(EVT_ERASE);
+                                        hasEvent = false;
+                                        state = STATE_WAIT_NULL;
+                                        break;
+
+                                case PROTO_COPY:       // Copy a file
+                                        Serial.println("Got a COPY");
+                                        // Next are the origin file name,
+                                        // then the destination one
+                                        event = getAnEvent();
+                                        event->clean(EVT_COPY);
+                                        hasEvent = false;
+                                        state = STATE_WAIT_NULL_TWO;
+                                        break;
+
+                                case PROTO_RENAME:     // Rename a file
+                                        Serial.println("Got a RENAME");
+                                        // Next are the origin file name,
+                                        // then the destination one
+                                        event = getAnEvent();
+                                        event->clean(EVT_RENAME);
+                                        hasEvent = false;
+                                        state = STATE_WAIT_NULL_TWO;
+                                        break;
+
                                 default:
                                         Serial.print("Got unknown command code: ");
                                         Serial.println((byte)token, HEX);
-                                        transactionDone = true;
+                                        if (token != 0 && token != 0xff)
+                                        {
+                                                event = getAnEvent();
+                                                event->clean(EVT_UNKNOWN_COMMAND);
+                                                hasEvent = true;
+                                        }
+                                        else
+                                        {
+                                                // Spurious read
+                                                transactionDone = true;
+                                        }
+
                         }
                         break;
                         
@@ -665,6 +701,18 @@ void Link::stateMachine(word token)
                         event->addByte(token);
                         state = STATE_WAIT_NULL;
                         break;
+
+                case STATE_WAIT_NULL_TWO:
+                        // This keeps adding bytes until a 0x00 is seen, then
+                        // go gets another.
+
+                        event->addByte(token);    // always add it, even if null
+                        if (token == 0x00)        // if null, end of the data
+                        {
+                                state = STATE_WAIT_NULL;
+                        }
+                        break;
+
         }
         
         // If this is the end of a transaction, indicate it on the UI.
@@ -784,7 +832,7 @@ void Link::sendEvent(Event *eptr)
                         }
                         break;
 
-                case EVT_VERSION_INFO2:
+                case EVT_VERSION_INFO:
                         // A VERSION_INFO is followed by two bytes:
                         // major and minor version codes.
 
@@ -824,4 +872,34 @@ Event *Link::getAnEvent(void)
 void Link::freeAnEvent(Event *eptr)
 {
         freeEvent = eptr;
+}
+
+
+
+
+//=============================================================================
+// This is function discards all the incoming data until the DIRECTION line
+// gives us control.  Use it for recovery when an unknown command/event comes
+// from the host
+
+void Link::discard(void)
+{
+        unsigned long nextPoll = millis();
+
+        while (debounceInputPin(DIRECTION))
+        {
+                if (nextPoll <= millis())
+                {
+                        nextPoll = millis() + 10;       // Poll each 10ms
+
+                        if (debounceInputPin(STROBE))
+                        {
+                                // There is a strobe, so get the byte from the host
+
+                                byte data = readByte();
+                                Serial.print("Discarding byte: 0x");
+                                Serial.println(data, HEX);
+                        }
+                }
+        }
 }

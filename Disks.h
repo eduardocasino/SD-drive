@@ -63,8 +63,13 @@ class Disks
                 bool isMounted(byte drive) { return (disks[drive]->isMounted()); }
                 char *getFilename(byte drive) { return disks[drive]->getFilename(); }
                 bool format(char *filename, int tracks, int sectors, byte fillPattern);
+                bool erase(char *filename);
+                bool copy(char *from, char *dest, bool rename);
+
                 
         private:
+                bool internalRename(char *from, char *dest);
+                bool internalCopy(char *from, char *dest);
                 Disk *disks[MAX_DISKS];
                 byte errorCode;
                 void freeRam();
@@ -78,7 +83,7 @@ class Disks
                 UserInt *userInt;
                 int whichConfigFile;
                 const char *configFileName;
-                char buffer[SECTOR_SIZE];
+                char buffer[SECTOR_SIZE*2];
                 
                 void setError(byte code) { errorCode = code; }
 };

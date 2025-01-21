@@ -44,7 +44,9 @@
 #define PROTO_READ_SECTOR_LONG 0x1f
 #define PROTO_WRITE_SECTOR_LONG 0x20
 #define PROTO_FORMAT 0x21
-#define PROTO_GET_VERSION2 0x22
+#define PROTO_ERASE 0x22
+#define PROTO_RENAME 0x23
+#define PROTO_COPY 0x24
 
 #define PROTO_VERSION  0x81
 #define PROTO_ACK    0x82
@@ -77,6 +79,7 @@ class Link
                 void sendEvent(Event *ep);
                 Event *getAnEvent(void);
                 void freeAnEvent(Event *eptr);
+                void discard(void);
                      
         private:
                 bool hasEvent;
