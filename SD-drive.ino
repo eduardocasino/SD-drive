@@ -947,9 +947,9 @@ static void renameFile(Event *ep)
         byte *bptr = ep->getData();     // Origin file name
 
         byte *dest = bptr;              // Destination file name
-        while (*dest++)                
+        while (*dest++)
           ;
-        
+
         // Check if the rename feature is enabled
 
         if (debounceInputPin(OPTION_2_PIN))

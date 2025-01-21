@@ -686,12 +686,12 @@ void Link::stateMachine(word token)
                         event->addByte(token);
                         state = STATE_APPEND_SECTOR;
                         break;
-                
+
                 case STATE_GET_TRACKS:
                         event->addByte(token);
                         state = STATE_GET_SECTORS;
                         break;
-                
+
                 case STATE_GET_SECTORS:
                         event->addByte(token);
                         state = STATE_GET_FILLER;

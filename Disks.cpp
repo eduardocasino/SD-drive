@@ -7,6 +7,7 @@
 // Bob Applegate - K2UT, bob@corshamtech.com
 
 // 2025/01/14 - Eduardo Casino: Implement format(), add error checks
+//              erase(), rename(), copy(), fixes...
 
 #include <SD.h>
 #include "Disks.h"
@@ -382,7 +383,7 @@ bool Disks::mount(byte drive, char *filename, bool readOnly)
                 }
         }
         else
-        {       
+        {
                 ret = false;
                 setError(ERR_BAD_DRIVE);
         }
@@ -480,7 +481,7 @@ bool Disks::write(byte drive, unsigned long offset, byte *buf)
         bool ret = false;
         
         if (isDriveValid(drive))
-        {        
+        {
                 // Is the drive even mounted?
                 if (disks[drive]->isMounted())
                 {
@@ -533,7 +534,7 @@ byte Disks::getStatus(byte drive)
 bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
 {
         bool ret = true;    // assume no error
-        
+
         Serial.print("Got format request for filename \"");
         Serial.print(filename);
         Serial.print("\": ");
@@ -555,9 +556,9 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
         else
         {
                 // Open the file for writing
-                
+
                 file = SD.open(filename, FILE_WRITE);
-                
+
                 if (!file)
                 {
                         Serial.println("Error opening file!");
@@ -569,7 +570,7 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
                         // Fill sector buffer
 
                         memset(buffer, fillPattern, SECTOR_SIZE);
-                        
+
                         for (int i = 0; i < tracks*sectors; i++)
                         {
                                 if (SECTOR_SIZE != file.write(buffer, SECTOR_SIZE))
@@ -595,7 +596,7 @@ bool Disks::format(char *filename, int tracks, int sectors, byte fillPattern)
                 Serial.print(" - FAILED!  Error code ");
                 Serial.println(errorCode);
         }
-        
+
         return ret;
 }
 
